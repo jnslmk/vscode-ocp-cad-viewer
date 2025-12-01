@@ -18,7 +18,7 @@ limitations under the License.
 -->
 
 <!-- {var} are template variables and will be resolved in display.js-->
-<html>
+<html data-theme="dark">
     <head>
         <meta charset="utf-8" />
         <title>OCP CAD Viewer</title>
@@ -1229,7 +1229,7 @@ limitations under the License.
         </script>
     </head>
 
-    <body style="padding: 0px; width: fit-content" {{ standalone_init|safe }}>
+    <body data-theme="dark" style="padding: 0px; width: fit-content; background: rgba(30, 30, 46, 0.8)" {{ standalone_init|safe }}>
         <div id="cad_viewer"></div>
     </body>
 </html>
