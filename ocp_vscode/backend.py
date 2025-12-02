@@ -47,6 +47,14 @@ else:
 
 from ocp_vscode.comms import MessageType, listener, set_port
 from ocp_vscode.measure import get_distance, get_properties
+from ocp_vscode.selector_inference import (
+    analyze_edge,
+    analyze_face,
+    analyze_vertex,
+    geometry_info_to_dict,
+    infer_selector,
+    selector_to_dict,
+)
 
 
 @dataclass
@@ -149,6 +157,9 @@ class ViewerBackend:
             shape_id = changes["selectedShapeIDs"][0]
             return self.handle_properties(shape_id)
 
+        elif self.activated_tool == Tool.Picker:
+            return self.handle_picker(selected_objs, changes.get("pickerAction"))
+
     def load_model(self, raw_model):
         """Read the transferred model from websocket"""
 
@@ -241,6 +252,137 @@ class ViewerBackend:
         else:
             send_response(response, self.port)
             print_to_stdout(f"Data sent {response}")
+
+    def handle_picker(self, selected_ids: list[str], action: str | None):
+        """Handle element picker selections.
+
+        Args:
+            selected_ids: List of selected shape IDs
+            action: "add", "remove", or "clear"
+        """
+        if action == "clear":
+            self.selection_buffer = []
+            return self._picker_response()
+
+        if not selected_ids:
+            return None
+
+        shape_id = selected_ids[0]
+        if shape_id not in self.model:
+            return None
+
+        shape = self.model[shape_id]
+
+        # Determine element type from ID and analyze
+        if "/faces/" in shape_id:
+            info = analyze_face(shape)
+            # Extract index from ID like "obj/faces/faces_3"
+            idx = int(shape_id.split("_")[-1])
+            info.index = idx
+            # Get all faces for selector inference
+            parent_id = shape_id.split("/faces/")[0]
+            all_elements = self._get_all_face_infos(parent_id)
+        elif "/edges/" in shape_id:
+            info = analyze_edge(shape)
+            idx = int(shape_id.split("_")[-1])
+            info.index = idx
+            parent_id = shape_id.split("/edges/")[0]
+            all_elements = self._get_all_edge_infos(parent_id)
+        elif "/vertices/" in shape_id:
+            info = analyze_vertex(shape)
+            idx = int(shape_id.split("_")[-1])
+            info.index = idx
+            parent_id = shape_id.split("/vertices/")[0]
+            all_elements = self._get_all_vertex_infos(parent_id)
+        else:
+            return None
+
+        # Infer selector
+        selector = infer_selector(info, all_elements)
+
+        # Build selection entry
+        entry = {
+            **geometry_info_to_dict(info),
+            "selector": selector_to_dict(selector),
+            "shape_id": shape_id,
+        }
+
+        # Toggle in buffer
+        existing_idx = next(
+            (i for i, e in enumerate(self.selection_buffer) if e["shape_id"] == shape_id),
+            None
+        )
+
+        if existing_idx is not None:
+            # Remove if already selected
+            self.selection_buffer.pop(existing_idx)
+            entry["action"] = "removed"
+        else:
+            # Add to buffer
+            self.selection_buffer.append(entry)
+            entry["action"] = "added"
+
+        return self._picker_response(entry)
+
+    def _picker_response(self, latest: dict | None = None):
+        """Build picker response to send to frontend."""
+        response = {
+            "type": "backend_response",
+            "subtype": "tool_response",
+            "tool_type": Tool.Picker,
+            "buffer": self.selection_buffer,
+            "buffer_count": len(self.selection_buffer),
+        }
+        if latest:
+            response["latest"] = latest
+
+        if is_jupyter_cadquery:
+            return response
+        else:
+            send_response(response, self.port)
+            return response
+
+    def _get_all_face_infos(self, parent_id: str) -> list:
+        """Get GeometryInfo for all faces of a parent shape."""
+        infos = []
+        i = 0
+        while True:
+            face_id = f"{parent_id}/faces/faces_{i}"
+            if face_id not in self.model:
+                break
+            info = analyze_face(self.model[face_id])
+            info.index = i
+            infos.append(info)
+            i += 1
+        return infos
+
+    def _get_all_edge_infos(self, parent_id: str) -> list:
+        """Get GeometryInfo for all edges of a parent shape."""
+        infos = []
+        i = 0
+        while True:
+            edge_id = f"{parent_id}/edges/edges_{i}"
+            if edge_id not in self.model:
+                break
+            info = analyze_edge(self.model[edge_id])
+            info.index = i
+            infos.append(info)
+            i += 1
+        return infos
+
+    def _get_all_vertex_infos(self, parent_id: str) -> list:
+        """Get GeometryInfo for all vertices of a parent shape."""
+        infos = []
+        i = 0
+        while True:
+            vertex_id = f"{parent_id}/vertices/vertices_{i}"
+            if vertex_id not in self.model:
+                break
+            info = analyze_vertex(self.model[vertex_id])
+            info.index = i
+            infos.append(info)
+            i += 1
+        return infos
 
 
 if __name__ == "__main__":
