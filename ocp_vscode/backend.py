@@ -55,6 +55,7 @@ class Tool:
 
     Distance = "DistanceMeasurement"
     Properties = "PropertiesMeasurement"
+    Picker = "ElementPicker"
 
 
 def print_to_stdout(*msg):
@@ -91,6 +92,7 @@ class ViewerBackend:
         self.activated_tool = None
         self.filter_type = "none"  # The current active selection filter
         self.jcv_id = jcv_id
+        self.selection_buffer = []  # Element picker selections
         set_port(port)
 
     def start(self):
@@ -101,6 +103,10 @@ class ViewerBackend:
         self.load_model(logo)
         print("Logo model loaded")
         listener(self.handle_event)()
+
+    def clear_selection_buffer(self):
+        """Clear selection buffer - called when new model is shown."""
+        self.selection_buffer = []
 
     @error_handler
     def handle_event(self, message, event_type: MessageType):
