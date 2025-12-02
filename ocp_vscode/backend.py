@@ -162,6 +162,7 @@ class ViewerBackend:
 
     def load_model(self, raw_model):
         """Read the transferred model from websocket"""
+        self.clear_selection_buffer()  # Clear buffer when new model shown
 
         def walk(model, trace):
             for v in model["parts"]:
