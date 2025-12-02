@@ -274,6 +274,24 @@ class Viewer:
         self.app.add_url_rule(
             "/", "redirect_to_viewer", lambda: redirect("/viewer", code=302)
         )
+        self.app.add_url_rule("/selection", "get_selection", self.get_selection)
+        self.app.add_url_rule(
+            "/selection/clear",
+            "clear_selection",
+            self.clear_selection,
+            methods=["POST"],
+        )
+
+    def get_selection(self):
+        """Return current selection buffer as JSON."""
+        buffer = self.backend.selection_buffer if self.backend else []
+        return orjson.dumps(buffer), 200, {"Content-Type": "application/json"}
+
+    def clear_selection(self):
+        """Clear the selection buffer."""
+        if self.backend:
+            self.backend.clear_selection_buffer()
+        return orjson.dumps({"status": "cleared"}), 200, {"Content-Type": "application/json"}
 
     def debug_print(self, *msg):
         if self.debug:
