@@ -30,4 +30,4 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: twine upload --repository-url https://npm.pkg.github.com/jnslmk/ dist/*
+        run: twine upload --repository-url https://npm.pkg.github.com/jnslmk/ocp_vscode/ dist/*
