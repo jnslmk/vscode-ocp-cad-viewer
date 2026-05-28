@@ -20,13 +20,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
       - name: Install build dependencies
-        run: uv pip install --system build
+        run: pip install build
 
       - name: Build wheel
         run: python -m build
@@ -35,5 +30,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://npm.pkg.github.com/jnslmk/
-          attestations: true
-          trusted-publishing: always
